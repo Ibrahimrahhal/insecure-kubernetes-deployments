@@ -277,10 +277,33 @@ def generate_reset_token(email: str = Form(...)):
 
 
 @router.get("/v2/notes/{note_id}")
-def get_note(note_id: int):
-    if note_id < len(notes_db):
-        return notes_db[note_id]
-    return {"error": "Note not found"}
+def get_note(note_id: int, request: Request):
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    token = auth_header.split(" ", 1)[1].strip()
+    try:
+        secret = os.environ.get("JWT_SECRET")
+        if not secret:
+            logging.error("JWT secret not configured; denying request")
+            return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+        claims = jwt.decode(token, secret, algorithms=["HS256"])
+        user_id = claims.get("sub") or claims.get("user_id")
+        if user_id is None:
+            return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    except Exception:
+        logging.warning("Invalid auth token for get_note request")
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    if note_id < 0 or note_id >= len(notes_db):
+        return JSONResponse(status_code=404, content={"error": "Note not found"})
+    note = notes_db[note_id]
+    if not isinstance(note, dict) or "owner_id" not in note:
+        logging.warning("Note metadata missing owner_id; denying access")
+        return JSONResponse(status_code=404, content={"error": "Note not found"})
+    if str(note.get("owner_id")) != str(user_id):
+        logging.info("Access denied to note_id=%s for user_id=%s", note_id, user_id)
+        return JSONResponse(status_code=403, content={"error": "Forbidden"})
+    return note
 
 
 @router.post("/v2/notes")
