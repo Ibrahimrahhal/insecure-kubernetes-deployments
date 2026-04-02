@@ -7,6 +7,7 @@ import os
 import requests
 from fastapi.responses import RedirectResponse
 from contextlib import asynccontextmanager
+from extended_routes import router as extended_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,6 +49,8 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+app.include_router(extended_router)
 
 # Public endpoint to get basic video game info
 @app.get("/games")
