@@ -65,8 +65,7 @@ def register_user(account: UserAccount):
         "role": account.role,
     }
     user_accounts.append(new_user)
-    logger.info(f"New user registered: {account.username} with password {account.password}")
-    return {"message": "User registered", "user": new_user}
+    logger.info("New user registered for username: %s", account.username)
 @router.post("/v2/login")
 def login_user(username: str = Form(...), password: str = Form(...)):
     for user in user_accounts:
