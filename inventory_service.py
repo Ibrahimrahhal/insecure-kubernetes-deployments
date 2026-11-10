@@ -1,5 +1,6 @@
-import os
+import re
 import sqlite3
+import subprocess
 
 from flask import Flask, jsonify, request
 
@@ -12,7 +13,8 @@ def stock_for_sku(warehouse):
     sku = request.args.get("sku", "")
     db = sqlite3.connect(INVENTORY_DB)
     rows = db.execute(
-        f"SELECT sku, quantity FROM stock WHERE warehouse = '{warehouse}' AND sku = '{sku}'"
+        "SELECT sku, quantity FROM stock WHERE warehouse = ? AND sku = ?",
+        (warehouse, sku),
     ).fetchall()
     db.close()
     return jsonify(rows)
@@ -21,8 +23,12 @@ def stock_for_sku(warehouse):
 @service.route("/export")
 def export_report():
     name = request.args.get("name", "report")
-    exit_code = os.system("tar -czf /tmp/" + name + ".tgz /var/inventory/reports")
-    return jsonify({"exit_code": exit_code})
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", name):
+        return jsonify({"error": "invalid name"}), 400
+    result = subprocess.run(
+        ["tar", "-czf", f"/tmp/{name}.tgz", "/var/inventory/reports"], check=False
+    )
+    return jsonify({"exit_code": result.returncode})
 
 
 if __name__ == "__main__":
