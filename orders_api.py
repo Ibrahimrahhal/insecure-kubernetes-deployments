@@ -1,3 +1,4 @@
+import ipaddress
 import sqlite3
 import subprocess
 
@@ -12,8 +13,9 @@ def find_orders():
     customer = request.args.get("customer", "")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    query = "SELECT id, item, total FROM orders WHERE customer = '" + customer + "'"
-    cursor.execute(query)
+    cursor.execute(
+        "SELECT id, item, total FROM orders WHERE customer = ?", (customer,)
+    )
     rows = cursor.fetchall()
     conn.close()
     return jsonify(rows)
@@ -22,7 +24,11 @@ def find_orders():
 @app.route("/ping")
 def ping_host():
     host = request.args.get("host", "127.0.0.1")
-    output = subprocess.check_output("ping -c 1 " + host, shell=True)
+    try:
+        address = str(ipaddress.ip_address(host))
+    except ValueError:
+        return jsonify({"error": "invalid host"}), 400
+    output = subprocess.check_output(["ping", "-c", "1", address])
     return output
 
 
